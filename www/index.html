@@ -1,0 +1,420 @@
+<!doctype html>
+<html>
+	<head>
+		<title>PD2 Simple Character Editor</title>
+		<link rel="shortcut icon" href="favicon.png">
+		<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+		<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; /*border: 1px solid red;*/}
+		body 
+		{ 
+			height: 772px; 
+			width: 554px;
+			display: flex; 
+			align-items: flex-start;
+			justify-content: left; 
+			background-image: url('inventory.png');
+			background-repeat: no-repeat;
+			font-family: 'Helvetika Neue', Arial, sans-serif; 
+			font-size: 28px; 
+			flex-direction: column;
+		}
+
+		div
+		{
+			box-sizing:border-box;
+			color: whitesmoke;
+		}
+
+		#inventory
+		{
+			display: flex; 
+			width: 554px;
+			height: 386px;
+		}
+
+		.slot
+		{
+			display: flex;
+			align-items: center;
+			justify-content: center; 
+			text-align: center;
+			position: absolute;
+			background: rgba(0, 0, 0, 0.718);
+			user-select: none;
+		}
+
+		.selectedslot
+		{
+			background: rgba(99, 41, 3, 0.718);
+		}
+
+		#head
+		{
+			left: 220px;
+			top: 10px;
+			width: 112px;
+			height: 112px;
+		}
+
+		#chest
+		{
+			left: 220px;
+			top: 132px;
+			width: 112px;
+			height: 166px;
+		}
+
+		#mainhand
+		{
+			left: 20px;
+			top: 52px;
+			width: 112px;
+			height: 206px;
+		}
+
+		#offhand
+		{
+			left: 420px;
+			top: 52px;
+			width: 112px;
+			height: 206px;
+		}
+
+		#hands
+		{
+			left: 20px;
+			top: 268px;
+			width: 113px;
+			height: 112px;
+		}
+
+		#feet
+		{
+			left: 420px;
+			top: 268px;
+			width: 112px;
+			height: 112px;
+		}
+
+		#belt
+		{
+			left: 220px;
+			top: 306px;
+			width: 112px;
+			height: 61px;
+		}
+
+		#leftring
+		{
+			left: 150px;
+			top: 306px;
+			width: 61px;
+			height: 61px;
+		}
+
+		#rightring
+		{
+			left: 342px;
+			top: 306px;
+			width: 61px;
+			height: 61px;
+		}
+
+		#amulet
+		{
+			left: 342px;
+			top: 62px;
+			width: 61px;
+			height: 61px;
+		}
+
+		#menu
+		{
+			display: flex; 
+			width: 554px;
+			height: 386px;
+			background-color: dimgray;
+		}
+
+		#stat
+		{
+			display: flex;
+			flex-direction: column;
+			justify-content: space-between; 
+			font-size: 18px;
+			width: 200px;
+		}
+
+		#stat div
+		{
+			display: flex;
+			align-items: center;
+			justify-content: space-between; 
+		}
+
+		#stat select
+		{
+			width: 130px;
+		}
+
+		#stat div button
+		{
+			width: 100%;
+		}
+
+		#itemlist
+		{
+			width: 354px;
+			height: 386px;
+			background: rgba(0, 0, 0, 0.718);
+			color: whitesmoke;
+		}
+
+		#itemlist option
+		{
+			padding-left: 10px;
+		}
+
+		</style>
+	</head>
+	<body onload=start()>
+		<div id="inventory">
+			<div id="head" class="slot">
+			</div>
+			<div id="chest" class="slot">
+			</div>
+			<div id="mainhand" class="slot">
+			</div>
+			<div id="offhand" class="slot">
+			</div>
+			<div id="hands" class="slot">
+			</div>
+			<div id="feet" class="slot">
+			</div>
+			<div id="belt" class="slot">
+			</div>
+			<div id="leftring" class="slot">
+			</div>
+			<div id="rightring" class="slot">
+			</div>
+			<div id="amulet" class="slot">
+			</div>
+		</div>
+		<div id="menu">
+			<div id="stat">
+				<div>
+					Class: 
+					<select id="class">
+						<option value="0">Amazon</option>
+						<option value="1">Sorceress</option>
+						<option value="2">Necromancer</option>
+						<option value="3">Paladin</option>
+						<option value="4">Barbarian</option>
+						<option value="5">Druid</option>
+						<option value="6">Assassin</option>
+					</select>
+				</div>
+				<div>
+					<button id="saveAsButton">Save As</button>
+					<button id="saveButton" disabled>Save</button>
+				</div>
+			</div>
+			<div id="selection">
+				<select id="itemlist" size="22">
+					<!--<option value="">test</option>-->
+				</select>
+			</div>
+		</div>
+		<script>
+			const head = document.querySelector('#head');
+			const chest = document.querySelector('#chest');
+			const mainhand = document.querySelector('#mainhand');
+			const offhand = document.querySelector('#offhand');
+			const hands = document.querySelector('#hands');
+			const feet = document.querySelector('#feet');
+			const belt = document.querySelector('#belt');
+			const leftring = document.querySelector('#leftring');
+			const rightring = document.querySelector('#rightring');
+			const amulet = document.querySelector('#amulet');
+			const heroclass = document.querySelector('#class');
+			const itemlist = document.querySelector('#itemlist');
+			const saveAsButton = document.querySelector('#saveAsButton');
+			const saveButton = document.querySelector('#saveButton');
+
+			var selectedid = "";
+			var selectedslot = "";
+
+			// We use async/await because Go functions are asynchronous
+			const render = async () => {
+				selectSlotPresentation(`${await window.selectSlotValue()}`);
+			};
+
+			const renderItemList = async () => {
+				itemlist.innerHTML = `${await window.getSelectionHtml()}`;
+			};
+
+			const renderItem = async (id) => {
+				var slot = document.querySelector('#' + id);
+				var itemName = await window.getItemName(id);
+				slot.innerHTML = itemName;
+				window.fitText( slot, 0.6);
+			};
+
+			const selectSlotPresentation = async (id) => {
+				const oldElement = document.querySelector('.selectedslot');
+				if(oldElement !== null && oldElement.id != id)
+				{
+					oldElement.className = "slot";
+				}
+
+				if(id != "" && !(oldElement != null && oldElement.id == id))
+				{
+					selectedid = id;
+					const selectedElement = document.querySelector('#' + id);
+					selectedElement.className = "slot selectedslot";
+					renderItemList();
+				}
+			};
+
+			head.addEventListener('click', async () => {
+				selectedslot = "head";
+				await selectSlot(selectedslot);
+				render();
+			});
+
+			chest.addEventListener('click', async () => {
+				selectedslot = "chest";
+				await selectSlot(selectedslot);
+				render();
+			});
+
+			mainhand.addEventListener('click', async () => {
+				selectedslot = "mainhand";
+				await selectSlot(selectedslot);
+				render();
+			});
+
+			offhand.addEventListener('click', async () => {
+				selectedslot = "offhand";
+				await selectSlot(selectedslot);
+				render();
+			});
+
+			hands.addEventListener('click', async () => {
+				selectedslot = "hands";
+				await selectSlot(selectedslot);
+				render();
+			});
+
+			feet.addEventListener('click', async () => {
+				selectedslot = "feet";
+				await selectSlot(selectedslot);
+				render();
+			});
+
+			belt.addEventListener('click', async () => {
+				selectedslot = "belt";
+				await selectSlot(selectedslot);
+				render();
+			});
+
+			leftring.addEventListener('click', async () => {
+				selectedslot = "leftring";
+				await selectSlot(selectedslot);
+				render();
+			});
+
+			rightring.addEventListener('click', async () => {
+				selectedslot = "rightring";
+				await selectSlot(selectedslot);
+				render();
+			});
+
+			amulet.addEventListener('click', async () => {
+				selectedslot = "amulet";
+				await selectSlot(selectedslot);
+				render();
+			});
+
+			heroclass.addEventListener('change', async () => {
+				await selectClass(parseInt(heroclass.value));
+				await renderItemList();
+				render();
+			});
+
+			itemlist.addEventListener('change', async () => {
+				await selectItem(itemlist.value);
+				render();
+				renderItem(selectedid);
+			});
+
+			saveAsButton.addEventListener('click', async () => {
+				var result = await saveAs();
+				if(result)
+				{
+					saveButton.disabled = false;
+				}
+			});
+
+			saveButton.addEventListener('click', async () => {
+				await save();
+			});
+
+		</script>
+		<script>
+			(function(){
+
+			var addEvent = function (el, type, fn) {
+			if (el.addEventListener)
+				el.addEventListener(type, fn, false);
+				else
+					el.attachEvent('on'+type, fn);
+			};
+
+			var extend = function(obj,ext){
+			for(var key in ext)
+				if(ext.hasOwnProperty(key))
+				obj[key] = ext[key];
+			return obj;
+			};
+
+			window.fitText = function (el, kompressor, options) {
+
+			var settings = extend({
+				'minFontSize' : -1/0,
+				'maxFontSize' : 1/0
+			},options);
+
+			var fit = function (el) {
+				var compressor = kompressor || 1;
+
+				var resizer = function () {
+				el.style.fontSize = Math.max(Math.min(el.clientWidth / (compressor*10), parseFloat(settings.maxFontSize)), parseFloat(settings.minFontSize)) + 'px';
+				};
+
+				// Call once to set.
+				resizer();
+
+				// Bind events
+				// If you have any js library which support Events, replace this part
+				// and remove addEvent function (or use original jQuery version)
+				addEvent(window, 'resize', resizer);
+				addEvent(window, 'orientationchange', resizer);
+			};
+
+			if (el.length)
+				for(var i=0; i<el.length; i++)
+				fit(el[i]);
+			else
+				fit(el);
+
+			// return set of elements
+			return el;
+			};
+			})();
+
+			window.fitText( document.getElementsByClassName("slot"), 0.5);
+		</script>
+	</body>
+</html>
