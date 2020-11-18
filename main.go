@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -14,7 +15,9 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -270,6 +273,7 @@ func (s *ItemSlot) selectItem(path string) {
 var g_SelectedSlot = &SelectedSlot{}
 var g_SelectedClass = &SelectedClass{}
 var g_SelectedItems = make(map[string]*ItemSlot)
+var g_CharacterName = ""
 var g_SavePath = "custom_hero.d2s"
 var g_WorkingDirectory string
 
@@ -395,33 +399,55 @@ func saveAs() bool {
 		return false
 	}
 
+	if !strings.HasSuffix(file, ".d2s") {
+		file += ".d2s"
+	}
+
+	characterName, nameerr := getCharacterName(file)
+	if nameerr != nil {
+		dialog.Message(nameerr.Error()).Error()
+		return false
+	}
+
+	g_CharacterName = characterName
 	g_SavePath = file
-	generateSaveFile(g_SavePath)
+	generateSaveFile(g_SavePath, g_CharacterName)
 
 	return true
 }
 
 func save() {
-	generateSaveFile(g_SavePath)
+	generateSaveFile(g_SavePath, g_CharacterName)
 }
 
-func generateSaveFile(savePathArg string) {
+func generateSaveFile(savePathArg string, characterName string) {
+	var nameByteArray = []byte(characterName)
+	var nullBytesToAdd = 16 - len(characterName)
+	for i := 0; i < nullBytesToAdd; i++ {
+		nameByteArray = append(nameByteArray, 0x00)
+	}
+
+	if len(nameByteArray) != 16 {
+		fmt.Println("Error, the name array is not exactly 16 bytes long, it is " + strconv.Itoa(len(nameByteArray)))
+		return
+	}
+
 	save := new(bytes.Buffer)
-	save.Write([]byte{0x55, 0xAA, 0x55, 0xAA})                                                                         //File Header
-	save.Write([]byte{0x60, 0x00, 0x00, 0x00})                                                                         //File Version
-	save.Write([]byte{0x00, 0x00, 0x00, 0x00})                                                                         //File Size
-	save.Write([]byte{0x00, 0x00, 0x00, 0x00})                                                                         //File CRC
-	save.Write([]byte{0x00, 0x00, 0x00, 0x00})                                                                         //Weapon Set
-	save.Write([]byte{0x63, 0x75, 0x73, 0x74, 0x6F, 0x6D, 0x5F, 0x68, 0x65, 0x72, 0x6F, 0x00, 0x00, 0x00, 0x00, 0x00}) //Character Name (custom_hero)
-	save.Write([]byte{0x20})                                                                                           //Character Type
-	save.Write([]byte{0x0F})                                                                                           //Character Title
-	save.Write([]byte{0x00, 0x00})                                                                                     //Unknown
-	save.Write([]byte{g_SelectedClass.value})                                                                          //0 Amazon  1 Sorceress  2 Necromancer  3 Paladin  4 Barbarian  5 Druid  6 Assassin
-	save.Write([]byte{0x10, 0x21})                                                                                     //Unknown
-	save.Write([]byte{0x63})                                                                                           //level 99
-	save.Write([]byte{0x00, 0x00, 0x00, 0x00})                                                                         //Unknown
-	save.Write([]byte{0x27, 0xAB, 0xB0, 0x5F})                                                                         //TimeStamp
-	save.Write([]byte{0xFF, 0xFF, 0xFF, 0xFF})                                                                         //Unknown
+	save.Write([]byte{0x55, 0xAA, 0x55, 0xAA}) //File Header
+	save.Write([]byte{0x60, 0x00, 0x00, 0x00}) //File Version
+	save.Write([]byte{0x00, 0x00, 0x00, 0x00}) //File Size
+	save.Write([]byte{0x00, 0x00, 0x00, 0x00}) //File CRC
+	save.Write([]byte{0x00, 0x00, 0x00, 0x00}) //Weapon Set
+	save.Write(nameByteArray)                  //Character Name
+	save.Write([]byte{0x20})                   //Character Type
+	save.Write([]byte{0x0F})                   //Character Title
+	save.Write([]byte{0x00, 0x00})             //Unknown
+	save.Write([]byte{g_SelectedClass.value})  //0 Amazon  1 Sorceress  2 Necromancer  3 Paladin  4 Barbarian  5 Druid  6 Assassin
+	save.Write([]byte{0x10, 0x21})             //Unknown
+	save.Write([]byte{0x63})                   //level 99
+	save.Write([]byte{0x00, 0x00, 0x00, 0x00}) //Unknown
+	save.Write([]byte{0x27, 0xAB, 0xB0, 0x5F}) //TimeStamp
+	save.Write([]byte{0xFF, 0xFF, 0xFF, 0xFF}) //Unknown
 	save.Write(skillsAttributesWaypointsAndQuests)
 	save.Write([]byte{0x4A, 0x4D}) //Item list header
 
@@ -473,7 +499,7 @@ func generateSaveFile(savePathArg string) {
 		return
 	}
 
-	fmt.Println(n2, "bytes written successfully")
+	fmt.Println(n2, "bytes written successfully to "+savePathArg)
 	err = f.Close()
 	if err != nil {
 		fmt.Println(err)
@@ -512,6 +538,43 @@ func getItemName(slot string) string {
 	}
 
 	return name
+}
+
+func getCharacterName(filename string) (string, error) {
+	var name = filepath.Base(strings.TrimSuffix(filename, path.Ext(filename)))
+	const err string = "Remember the rules for Diablo II character names: \r\n" +
+		"2-15 characters, containing only upper and " +
+		"lower case letters (A-Z), with the possible addition of one dash ( - ) or " +
+		"underscore ( _ ) as long as it is not the first or last character of the name."
+
+	if len(name) == 1 {
+		fmt.Println("NameError 1")
+		return "", errors.New(err)
+	}
+
+	if len(name) > 15 {
+		fmt.Println("NameError 2")
+		return "", errors.New(err)
+	}
+
+	if strings.HasPrefix(name, "_") || strings.HasPrefix(name, "-") ||
+		strings.HasSuffix(name, "_") || strings.HasSuffix(name, "-") {
+		fmt.Println("NameError 3")
+		return "", errors.New(err)
+	}
+
+	if strings.Count(name, "-")+strings.Count(name, "_") > 1 {
+		fmt.Println("NameError 4")
+		return "", errors.New(err)
+	}
+
+	matched, _ := regexp.MatchString(`^[a-zA-Z\-_]+$`, name)
+	if !matched {
+		fmt.Println("NameError 5")
+		return "", errors.New(err)
+	}
+
+	return name, nil
 }
 
 func main() {
